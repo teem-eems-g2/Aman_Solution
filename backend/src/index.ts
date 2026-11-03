@@ -23,6 +23,14 @@ app.get('/health', (req: Request, res: Response) => {
   res.status(200).json({ status: 'ok' });
 });
 
+app.get('/', (req: Request, res: Response) => {
+  res.status(200).json({
+    status: 'success',
+    message: 'Welcome to Amanuel Solution API',
+    version: '1.0.0',
+  });
+});
+
 app.get('/db-test', async (req: Request, res: Response) => {
   try {
     await prisma.$queryRaw`SELECT 1`;
