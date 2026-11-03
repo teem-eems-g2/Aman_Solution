@@ -1,0 +1,279 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  CUSTOMER
+  TECHNICIAN
+  ADMIN
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+}
+
+enum DeviceCategory {
+  MOBILE_PHONE
+  TABLET
+  LAPTOP
+  DESKTOP_COMPUTER
+}
+
+enum RepairStatus {
+  SUBMITTED
+  ACCEPTED
+  REJECTED
+  NEEDS_CLARIFICATION
+  RECEIVED
+  DIAGNOSING
+  QUOTATION_PENDING
+  APPROVED
+  IN_REPAIR
+  TESTING
+  READY_FOR_COLLECTION
+  COMPLETED
+  CANCELLED
+}
+
+enum AppointmentStatus {
+  REQUESTED
+  CONFIRMED
+  RESCHEDULED
+  CANCELLED
+  COMPLETED
+}
+
+enum QuotationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  EXPIRED
+  SUPERSEDED
+}
+
+enum PaymentMethod {
+  CASH
+  BANK_TRANSFER
+  MOBILE_MONEY
+}
+
+enum PaymentType {
+  DEPOSIT
+  PARTIAL
+  FINAL
+  REVERSAL
+}
+
+model User {
+  id           String     @id @default(uuid())
+  name         String
+  email        String     @unique
+  phone        String
+  passwordHash String
+  role         Role       @default(CUSTOMER)
+  status       UserStatus @default(ACTIVE)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  devices                Device[]
+  customerRepairOrders   RepairOrder[]  @relation("CustomerRepairOrders")
+  assignedRepairOrders   RepairOrder[]  @relation("TechnicianRepairOrders")
+  repairUpdates          RepairUpdate[] @relation("ActorRepairUpdates")
+  auditLogs              AuditLog[]     @relation("ActorAuditLogs")
+  recordedPayments       Payment[]      @relation("RecordedPayments")
+  notifications          Notification[] @relation("UserNotifications")
+
+  @@map("users")
+}
+
+model Device {
+  id           String         @id @default(uuid())
+  customerId   String
+  customer     User           @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  category     DeviceCategory
+  brand        String
+  model        String
+  serialNumber String?
+  photos       String[]
+  createdAt    DateTime       @default(now())
+
+  repairOrders RepairOrder[]
+
+  @@map("devices")
+}
+
+model Service {
+  id              String         @id @default(uuid())
+  name            String
+  description     String
+  category        DeviceCategory
+  indicativePrice Decimal        @db.Decimal(10, 2)
+  isActive        Boolean        @default(true)
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  repairOrders RepairOrder[]
+
+  @@map("services")
+}
+
+model RepairOrder {
+  id                  String       @id @default(uuid())
+  referenceNumber     String       @unique
+  customerId          String
+  customer            User         @relation("CustomerRepairOrders", fields: [customerId], references: [id])
+  deviceId            String
+  device              Device       @relation(fields: [deviceId], references: [id])
+  serviceId           String?
+  service             Service?     @relation(fields: [serviceId], references: [id])
+  assignedTechId      String?
+  assignedTech        User?        @relation("TechnicianRepairOrders", fields: [assignedTechId], references: [id])
+  issueDescription    String
+  diagnosisNotes      String?
+  testingResults      String?
+  status              RepairStatus @default(SUBMITTED)
+  handoverConfirmedAt DateTime?
+  createdAt           DateTime     @default(now())
+  updatedAt           DateTime     @updatedAt
+
+  appointments Appointment[]
+  quotations   Quotation[]
+  updates      RepairUpdate[]
+  repairParts  RepairPart[]
+  payments     Payment[]
+
+  @@map("repair_orders")
+}
+
+model Appointment {
+  id             String            @id @default(uuid())
+  repairOrderId  String
+  repairOrder    RepairOrder       @relation(fields: [repairOrderId], references: [id], onDelete: Cascade)
+  scheduledStart DateTime
+  scheduledEnd   DateTime
+  status         AppointmentStatus @default(REQUESTED)
+  notes          String?
+  createdAt      DateTime          @default(now())
+
+  @@map("appointments")
+}
+
+model Quotation {
+  id                String          @id @default(uuid())
+  repairOrderId     String
+  repairOrder       RepairOrder     @relation(fields: [repairOrderId], references: [id], onDelete: Cascade)
+  version           Int
+  totalAmount       Decimal         @db.Decimal(10, 2)
+  currency          String          @default("ETB")
+  validUntil        DateTime
+  status            QuotationStatus @default(PENDING)
+  isAdditionalWork  Boolean         @default(false)
+  decisionAt        DateTime?
+  createdAt         DateTime        @default(now())
+
+  items QuotationItem[]
+
+  @@map("quotations")
+}
+
+model QuotationItem {
+  id          String    @id @default(uuid())
+  quotationId String
+  quotation   Quotation @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+  description String
+  quantity    Int
+  unitPrice   Decimal   @db.Decimal(10, 2)
+  lineTotal   Decimal   @db.Decimal(10, 2)
+
+  @@map("quotation_items")
+}
+
+model RepairUpdate {
+  id             String        @id @default(uuid())
+  repairOrderId  String
+  repairOrder    RepairOrder   @relation(fields: [repairOrderId], references: [id], onDelete: Cascade)
+  actorId        String
+  actor          User          @relation("ActorRepairUpdates", fields: [actorId], references: [id])
+  previousStatus RepairStatus?
+  newStatus      RepairStatus
+  notes          String
+  createdAt      DateTime      @default(now())
+
+  @@map("repair_updates")
+}
+
+model InventoryPart {
+  id               String       @id @default(uuid())
+  name             String
+  sku              String       @unique
+  quantity         Int
+  reorderThreshold Int
+  unitCost         Decimal      @db.Decimal(10, 2)
+  updatedAt        DateTime     @updatedAt
+
+  repairParts RepairPart[]
+
+  @@map("inventory_parts")
+}
+
+model RepairPart {
+  id               String        @id @default(uuid())
+  repairOrderId    String
+  repairOrder      RepairOrder   @relation(fields: [repairOrderId], references: [id], onDelete: Cascade)
+  partId           String
+  part             InventoryPart @relation(fields: [partId], references: [id])
+  quantityUsed     Int
+  recordedUnitCost Decimal       @db.Decimal(10, 2)
+  createdAt        DateTime      @default(now())
+
+  @@map("repair_parts")
+}
+
+model Payment {
+  id            String        @id @default(uuid())
+  repairOrderId String
+  repairOrder   RepairOrder   @relation(fields: [repairOrderId], references: [id])
+  amount        Decimal       @db.Decimal(10, 2)
+  method        PaymentMethod
+  type          PaymentType
+  reference     String?
+  receiptNumber String        @unique
+  recordedById  String
+  recordedBy    User          @relation("RecordedPayments", fields: [recordedById], references: [id])
+  createdAt     DateTime      @default(now())
+
+  @@map("payments")
+}
+
+model Notification {
+  id             String   @id @default(uuid())
+  recipientId    String
+  recipient      User     @relation("UserNotifications", fields: [recipientId], references: [id], onDelete: Cascade)
+  eventType      String
+  message        String
+  isRead         Boolean  @default(false)
+  deliveryStatus String
+  createdAt      DateTime @default(now())
+
+  @@map("notifications")
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  actorId    String
+  actor      User     @relation("ActorAuditLogs", fields: [actorId], references: [id])
+  action     String
+  entityType String
+  entityId   String
+  details    Json
+  createdAt  DateTime @default(now())
+
+  @@map("audit_logs")
+}
