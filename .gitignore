@@ -1,7 +1,7 @@
-# dependencies
-/node_modules
-node_modules
-/.pnp
+# Dependencies
+node_modules/
+**/node_modules/
+.pnp
 .pnp.*
 .yarn/*
 !.yarn/patches
@@ -9,42 +9,56 @@ node_modules
 !.yarn/releases
 !.yarn/versions
 
-# environment files
+# Environment files
 .env
 .env.*
 !.env.example
 
-# uploads
-/uploads
-uploads
+# Uploads
+/uploads/
+uploads/
 
-# database
-.pgdata
-/.pgdata
+# Database
+.pgdata/
+**/.pgdata/
 
-# testing
-/coverage
+# IDE
+.idea/
+.vscode/
 
-# next.js
-/.next/
-/out/
+# Testing
+coverage/
 
-# production
-/build
+# Next.js
+.next/
+out/
 
-# misc
+# Production builds
+build/
+dist/
+
+# Flutter / Dart
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+
+# Miscellaneous
 .DS_Store
 *.pem
+*.log
+graphify-out/
+design preferences
 
-# debug
+# Debug logs
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# vercel
-.vercel
+# Vercel
+.vercel/
 
-# typescript
+# TypeScript
 *.tsbuildinfo
 next-env.d.ts
