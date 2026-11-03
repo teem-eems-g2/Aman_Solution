@@ -9,8 +9,9 @@ import productRouter from './routes/product.routes';
 import adminProductRouter from './routes/adminProduct.routes';
 import cartRouter from './routes/cart.routes';
 import orderRouter from './routes/order.routes';
+import { prisma } from './lib/prisma';
 
-dotenv.config();
+dotenv.config({ path: '.env.local' });
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -20,6 +21,24 @@ app.use(express.json());
 
 app.get('/health', (req: Request, res: Response) => {
   res.status(200).json({ status: 'ok' });
+});
+
+app.get('/db-test', async (req: Request, res: Response) => {
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+
+    res.status(200).json({
+      status: 'success',
+      message: 'Neon PostgreSQL database connected successfully!',
+    });
+  } catch (error) {
+    console.error('Database connection failed:', error);
+
+    res.status(500).json({
+      status: 'error',
+      message: 'Database connection failed',
+    });
+  }
 });
 
 app.use('/api/auth', authRouter);

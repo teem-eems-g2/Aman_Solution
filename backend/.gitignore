@@ -6,3 +6,5 @@ dist/
 .windsurf/
 .agents/
 skills-lock.json
+.neon
+.env.local
