@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
@@ -22,6 +22,67 @@ export function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [currentHash, setCurrentHash] = useState("");
+
+  useEffect(() => {
+    const updateHash = () => {
+      setCurrentHash(window.location.hash || "");
+    };
+
+    updateHash();
+
+    window.addEventListener("hashchange", updateHash);
+    window.addEventListener("popstate", updateHash);
+
+    return () => {
+      window.removeEventListener("hashchange", updateHash);
+      window.removeEventListener("popstate", updateHash);
+    };
+  }, [pathname]);
+
+  const handleHashLinkClick = (href: string) => {
+    if (href.includes("#")) {
+      const hashPart = href.slice(href.indexOf("#"));
+      setCurrentHash(hashPart);
+    } else if (href === "/") {
+      setCurrentHash("");
+    }
+  };
+
+  const isLinkActive = (href: string) => {
+    const normalizedHash = currentHash.toLowerCase();
+
+    // 1. Services page
+    if (href === "/services") {
+      return pathname === "/services" || pathname.startsWith("/services/");
+    }
+
+    // 2. Track Repair (customer dashboard)
+    if (href === "/customer/dashboard") {
+      return pathname.startsWith("/customer/dashboard");
+    }
+
+    // 3. About Us section / page
+    if (href === "/#about") {
+      return pathname === "/about" || (pathname === "/" && normalizedHash === "#about");
+    }
+
+    // 4. Contact section / page
+    if (href === "/#contact") {
+      return pathname === "/contact" || (pathname === "/" && normalizedHash === "#contact");
+    }
+
+    // 5. Home link (active only on home without about/contact hash)
+    if (href === "/") {
+      return (
+        pathname === "/" &&
+        normalizedHash !== "#about" &&
+        normalizedHash !== "#contact"
+      );
+    }
+
+    return false;
+  };
 
   const userRole = (session?.user as { role?: string })?.role;
 
@@ -44,7 +105,11 @@ export function Navbar() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-20">
           {/* Left: Brand Logo */}
-          <Link href="/" className="flex items-center gap-3 group">
+          <Link
+            href="/"
+            onClick={() => handleHashLinkClick("/")}
+            className="flex items-center gap-3 group"
+          >
             <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-700 flex items-center justify-center text-white shadow-md shadow-blue-500/20 group-hover:scale-105 transition-transform">
               <div className="relative">
                 <Wrench className="w-5 h-5 text-white stroke-[2.2]" />
@@ -64,15 +129,14 @@ export function Navbar() {
           {/* Center Navigation Links (Desktop) */}
           <nav className="hidden md:flex items-center gap-8">
             {navLinks.map((link) => {
-              const isActive =
-                link.href === "/"
-                  ? pathname === "/"
-                  : pathname.startsWith(link.href) && link.href !== "/#about" && link.href !== "/#contact";
+              const isActive = isLinkActive(link.href);
+              const isHashOrHome = link.href.includes("#") || link.href === "/";
 
               return (
                 <Link
                   key={link.name}
                   href={link.href}
+                  onClick={isHashOrHome ? () => handleHashLinkClick(link.href) : undefined}
                   className={`text-sm font-semibold transition-colors relative py-2 ${
                     isActive
                       ? "text-blue-600 font-bold"
@@ -184,16 +248,29 @@ export function Navbar() {
       {mobileMenuOpen && (
         <div className="md:hidden border-t border-slate-200 bg-white px-4 pt-3 pb-6 space-y-3">
           <nav className="flex flex-col space-y-2">
-            {navLinks.map((link) => (
-              <Link
-                key={link.name}
-                href={link.href}
-                onClick={() => setMobileMenuOpen(false)}
-                className="px-3 py-2 rounded-lg text-sm font-semibold text-slate-700 hover:bg-slate-50 hover:text-blue-600"
-              >
-                {link.name}
-              </Link>
-            ))}
+            {navLinks.map((link) => {
+              const isActive = isLinkActive(link.href);
+
+              return (
+                <Link
+                  key={link.name}
+                  href={link.href}
+                  onClick={() => {
+                    if (link.href.includes("#") || link.href === "/") {
+                      handleHashLinkClick(link.href);
+                    }
+                    setMobileMenuOpen(false);
+                  }}
+                  className={`px-3 py-2 rounded-lg text-sm font-semibold transition-colors ${
+                    isActive
+                      ? "bg-blue-50 text-blue-600 font-bold"
+                      : "text-slate-700 hover:bg-slate-50 hover:text-blue-600"
+                  }`}
+                >
+                  {link.name}
+                </Link>
+              );
+            })}
           </nav>
           <div className="pt-3 border-t border-slate-100 flex flex-col gap-2">
             {session?.user ? (
