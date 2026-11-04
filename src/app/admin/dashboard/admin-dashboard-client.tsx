@@ -290,6 +290,9 @@ export function AdminDashboardClient({
   const [staffModalMessage, setStaffModalMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   const [editingStaff, setEditingStaff] = useState<SerializedStaffMember | null>(null);
+  const [editStaffName, setEditStaffName] = useState("");
+  const [editStaffEmail, setEditStaffEmail] = useState("");
+  const [editStaffPhone, setEditStaffPhone] = useState("");
   const [editStaffRole, setEditStaffRole] = useState<"TECHNICIAN" | "ADMIN">("TECHNICIAN");
   const [editStaffStatus, setEditStaffStatus] = useState<"ACTIVE" | "INACTIVE" | "SUSPENDED">("ACTIVE");
 
@@ -562,13 +565,38 @@ export function AdminDashboardClient({
     }
   };
 
-  // Staff Update (Role / Status)
+  // Staff Update (Details / Role / Status)
   const handleUpdateStaff = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingStaff) return;
 
+    const trimmedName = editStaffName.trim();
+    const trimmedEmail = editStaffEmail.trim().toLowerCase();
+    const trimmedPhone = editStaffPhone.trim();
+
+    if (trimmedName.length < 2) {
+      setStaffModalMessage({ type: "error", text: "Full name must be at least 2 characters." });
+      return;
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(trimmedEmail)) {
+      setStaffModalMessage({ type: "error", text: "Please enter a valid email address." });
+      return;
+    }
+
+    if (trimmedPhone.length < 9) {
+      setStaffModalMessage({ type: "error", text: "Phone number must be at least 9 characters." });
+      return;
+    }
+
     if (editingStaff.id === admin.id && editStaffStatus !== "ACTIVE") {
       setStaffModalMessage({ type: "error", text: "Cannot deactivate or suspend your own admin account (BR-03)." });
+      return;
+    }
+
+    if (editingStaff.id === admin.id && editStaffRole !== "ADMIN") {
+      setStaffModalMessage({ type: "error", text: "Cannot demote your own admin account (BR-03)." });
       return;
     }
 
@@ -580,6 +608,9 @@ export function AdminDashboardClient({
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          name: trimmedName,
+          email: trimmedEmail,
+          phone: trimmedPhone,
           role: editStaffRole,
           status: editStaffStatus,
         }),
@@ -590,13 +621,37 @@ export function AdminDashboardClient({
         throw new Error(data.error || "Failed to update staff member");
       }
 
-      setStaffModalMessage({ type: "success", text: "Staff account updated." });
+      setStaffModalMessage({ type: "success", text: "Staff details updated successfully!" });
 
       setStaff((prev) =>
         prev.map((s) =>
           s.id === editingStaff.id
-            ? { ...s, role: data.staff.role, status: data.staff.status }
+            ? {
+                ...s,
+                name: data.staff.name,
+                email: data.staff.email,
+                phone: data.staff.phone,
+                role: data.staff.role,
+                status: data.staff.status,
+              }
             : s
+        )
+      );
+
+      // Keep assigned technician details in orders view synchronized
+      setOrders((prev) =>
+        prev.map((o) =>
+          o.assignedTech?.id === editingStaff.id
+            ? {
+                ...o,
+                assignedTech: {
+                  ...o.assignedTech,
+                  name: data.staff.name,
+                  email: data.staff.email,
+                  phone: data.staff.phone,
+                },
+              }
+            : o
         )
       );
 
@@ -1407,13 +1462,17 @@ export function AdminDashboardClient({
                             <button
                               onClick={() => {
                                 setEditingStaff(member);
-                                setEditStaffRole(member.role);
+                                setEditStaffName(member.name);
+                                setEditStaffEmail(member.email);
+                                setEditStaffPhone(member.phone);
+                                setEditStaffRole(member.role as "TECHNICIAN" | "ADMIN");
                                 setEditStaffStatus(member.status);
                                 setStaffModalMessage(null);
                               }}
-                              className="px-2.5 py-1 rounded-lg border border-slate-200 hover:bg-slate-100 text-slate-700 font-semibold"
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-blue-50 hover:border-blue-300 hover:text-blue-700 text-slate-700 font-semibold text-xs transition shadow-xs"
                             >
-                              Edit Status/Role
+                              <Edit2 className="w-3.5 h-3.5" />
+                              Edit Staff
                             </button>
                           </td>
                         </tr>
@@ -2035,11 +2094,13 @@ export function AdminDashboardClient({
       {/* EDIT STAFF MODAL */}
       {editingStaff && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-md overflow-hidden animate-in zoom-in-95">
+          <div className="bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-lg overflow-hidden animate-in zoom-in-95">
             <div className="bg-gradient-to-r from-[#0F294A] to-[#1a4175] text-white p-5 flex items-center justify-between">
               <div>
-                <h4 className="font-extrabold text-base">Edit Staff Account</h4>
-                <p className="text-xs text-slate-300">{editingStaff.name}</p>
+                <h4 className="font-extrabold text-base">Edit Staff Member</h4>
+                <p className="text-xs text-slate-300">
+                  Update full name, contact information, system role, and access status
+                </p>
               </div>
               <button
                 onClick={() => setEditingStaff(null)}
@@ -2063,44 +2124,110 @@ export function AdminDashboardClient({
               )}
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">System Role</label>
-                <select
-                  value={editStaffRole}
-                  onChange={(e) => setEditStaffRole(e.target.value as any)}
-                  className="w-full text-xs p-2.5 rounded-xl border border-slate-200 font-bold"
-                >
-                  <option value="TECHNICIAN">TECHNICIAN</option>
-                  <option value="ADMIN">ADMIN</option>
-                </select>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Full Name <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  minLength={2}
+                  placeholder="e.g. Dawit Haile"
+                  value={editStaffName}
+                  onChange={(e) => setEditStaffName(e.target.value)}
+                  disabled={isSubmittingStaff}
+                  className="w-full text-xs p-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium disabled:bg-slate-100"
+                />
               </div>
 
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Account Status</label>
-                <select
-                  value={editStaffStatus}
-                  onChange={(e) => setEditStaffStatus(e.target.value as any)}
-                  className="w-full text-xs p-2.5 rounded-xl border border-slate-200 font-bold"
-                >
-                  <option value="ACTIVE">ACTIVE</option>
-                  <option value="INACTIVE">INACTIVE</option>
-                  <option value="SUSPENDED">SUSPENDED</option>
-                </select>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    Email Address <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="email"
+                    required
+                    placeholder="staff@amanuelrepair.com"
+                    value={editStaffEmail}
+                    onChange={(e) => setEditStaffEmail(e.target.value)}
+                    disabled={isSubmittingStaff}
+                    className="w-full text-xs p-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium disabled:bg-slate-100"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    Phone Number <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="tel"
+                    required
+                    minLength={9}
+                    placeholder="+251 9X XXX XXXX"
+                    value={editStaffPhone}
+                    onChange={(e) => setEditStaffPhone(e.target.value)}
+                    disabled={isSubmittingStaff}
+                    className="w-full text-xs p-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium disabled:bg-slate-100"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">System Role</label>
+                  <select
+                    value={editStaffRole}
+                    onChange={(e) => setEditStaffRole(e.target.value as any)}
+                    disabled={isSubmittingStaff || editingStaff.id === admin.id}
+                    className="w-full text-xs p-2.5 rounded-xl border border-slate-200 font-bold disabled:bg-slate-100 disabled:text-slate-400"
+                  >
+                    <option value="TECHNICIAN">TECHNICIAN</option>
+                    <option value="ADMIN">ADMIN</option>
+                  </select>
+                  {editingStaff.id === admin.id && (
+                    <p className="text-[10px] text-slate-400 mt-1">Cannot demote own account</p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Account Status</label>
+                  <select
+                    value={editStaffStatus}
+                    onChange={(e) => setEditStaffStatus(e.target.value as any)}
+                    disabled={isSubmittingStaff || editingStaff.id === admin.id}
+                    className="w-full text-xs p-2.5 rounded-xl border border-slate-200 font-bold disabled:bg-slate-100 disabled:text-slate-400"
+                  >
+                    <option value="ACTIVE">ACTIVE</option>
+                    <option value="INACTIVE">INACTIVE</option>
+                    <option value="SUSPENDED">SUSPENDED</option>
+                  </select>
+                  {editingStaff.id === admin.id && (
+                    <p className="text-[10px] text-slate-400 mt-1">Cannot deactivate own account</p>
+                  )}
+                </div>
               </div>
 
               <div className="flex justify-end gap-2 pt-2">
                 <button
                   type="button"
                   onClick={() => setEditingStaff(null)}
-                  className="px-4 py-2 rounded-xl border border-slate-200 text-slate-600 font-semibold text-xs"
+                  className="px-4 py-2 rounded-xl border border-slate-200 text-slate-600 font-semibold text-xs hover:bg-slate-50 transition"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmittingStaff}
-                  className="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-md"
+                  className="inline-flex items-center gap-1.5 px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-md disabled:opacity-50 transition"
                 >
-                  {isSubmittingStaff ? "Saving..." : "Save Changes"}
+                  {isSubmittingStaff ? (
+                    <>
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    "Save Changes"
+                  )}
                 </button>
               </div>
             </form>
