@@ -4,7 +4,8 @@ import { redirect } from "next/navigation";
 import { connection } from "next/server";
 import { auth } from "@/auth";
 import { Role } from "@prisma/client";
-import { LoginForm, getSafeRedirectUrl } from "./login-form";
+import { getSafeRedirectUrl } from "@/lib/auth-redirect";
+import { LoginForm } from "./login-form";
 
 export const metadata: Metadata = {
   title: "Sign In | Amanuel Mobile and Computer Maintenance",

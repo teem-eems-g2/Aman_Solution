@@ -13,61 +13,7 @@ import {
   ArrowRight,
   Loader2,
 } from "lucide-react";
-
-/**
- * Resolves an authorized, safe destination preventing open redirects, redirect loops,
- * and privilege escalations (e.g. non-admins redirected to /admin).
- */
-export function getSafeRedirectUrl(role: string, callbackUrl?: string | null): string {
-  if (callbackUrl) {
-    try {
-      const currentOrigin =
-        typeof window !== "undefined" ? window.location.origin : "http://localhost:3000";
-
-      // Protocol-relative URLs like "//attacker.com" must be rejected
-      if (callbackUrl.startsWith("//")) {
-        throw new Error("Protocol-relative URL forbidden");
-      }
-
-      const parsed = new URL(callbackUrl, currentOrigin);
-
-      // Strictly verify same-origin to prevent open redirects
-      if (parsed.origin === currentOrigin) {
-        const path = parsed.pathname;
-
-        // Disallow redirecting back to login, register, or API routes to prevent loops
-        if (
-          path !== "/login" &&
-          path !== "/register" &&
-          !path.startsWith("/api/") &&
-          !path.includes("/auth/")
-        ) {
-          // Enforce role authorization on destination path
-          if (path.startsWith("/admin")) {
-            if (role === "ADMIN") return path + parsed.search;
-          } else if (path.startsWith("/technician")) {
-            if (role === "ADMIN" || role === "TECHNICIAN") return path + parsed.search;
-          } else {
-            return path + parsed.search;
-          }
-        }
-      }
-    } catch {
-      // Invalid URL or disallowed origin, fallback to safe role defaults
-    }
-  }
-
-  // Authoritative default dashboards per role
-  switch (role) {
-    case "ADMIN":
-      return "/admin/dashboard";
-    case "TECHNICIAN":
-      return "/technician/dashboard";
-    case "CUSTOMER":
-    default:
-      return "/customer/dashboard";
-  }
-}
+import { getSafeRedirectUrl } from "@/lib/auth-redirect";
 
 export function LoginForm() {
   const searchParams = useSearchParams();
