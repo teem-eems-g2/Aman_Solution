@@ -16,7 +16,6 @@ node_modules/
 
 # Uploads
 /uploads/
-uploads/
 
 # Database
 .pgdata/

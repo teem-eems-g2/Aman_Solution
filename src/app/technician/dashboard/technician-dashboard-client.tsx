@@ -1239,26 +1239,32 @@ export function TechnicianDashboardClient({
                       <p className="text-xs text-slate-400 italic">No intake photos uploaded for this device.</p>
                     ) : (
                       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                        {activeOrder.device.photos.map((photo, i) => (
-                          <div
-                            key={i}
-                            onClick={() => setPreviewPhoto(`/api/uploads/device-photo/${photo}`)}
-                            className="group relative aspect-video bg-slate-200 rounded-xl overflow-hidden border border-slate-300 cursor-pointer hover:border-blue-500 transition-all"
-                          >
-                            <img
-                              src={`/api/uploads/device-photo/${photo}`}
-                              alt={`Intake Photo ${i + 1}`}
-                              className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-                              onError={(e) => {
-                                (e.target as HTMLImageElement).src =
-                                  "https://placehold.co/400x300/e2e8f0/475569?text=Photo+Unavailable";
-                              }}
-                            />
-                            <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white">
-                              <Maximize2 className="w-4 h-4" />
+                        {activeOrder.device.photos.map((photo, i) => {
+                          const photoUrl = photo.startsWith("http")
+                            ? photo
+                            : `/api/uploads/device-photo/${photo}`;
+
+                          return (
+                            <div
+                              key={i}
+                              onClick={() => setPreviewPhoto(photoUrl)}
+                              className="group relative aspect-video bg-slate-200 rounded-xl overflow-hidden border border-slate-300 cursor-pointer hover:border-blue-500 transition-all"
+                            >
+                              <img
+                                src={photoUrl}
+                                alt={`Intake Photo ${i + 1}`}
+                                className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                                onError={(e) => {
+                                  (e.target as HTMLImageElement).src =
+                                    "https://placehold.co/400x300/e2e8f0/475569?text=Photo+Unavailable";
+                                }}
+                              />
+                              <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white">
+                                <Maximize2 className="w-4 h-4" />
+                              </div>
                             </div>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     )}
                   </div>
